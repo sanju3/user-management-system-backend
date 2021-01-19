@@ -39,105 +39,91 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var services_1 = require("./../services");
 var express_1 = __importDefault(require("express"));
-var UserModel_1 = require("./../models/UserModel");
-var bcrypt_1 = __importDefault(require("bcrypt"));
 var randomstring_1 = __importDefault(require("randomstring"));
 var mail_1 = require("./../mail");
-var jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+var services_2 = require("../services");
 var UserRouter = express_1.default.Router();
-UserRouter.post("/login", function (req, res) {
-    UserModel_1.UserModel.find({ username: req.body.username }, function (err, users) { return __awaiter(void 0, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    if (!err) return [3 /*break*/, 1];
-                    res.status(500).json("CallbackError : " + err);
-                    return [3 /*break*/, 6];
-                case 1:
-                    if (!users[0]) return [3 /*break*/, 5];
-                    if (!users[0].status) return [3 /*break*/, 3];
-                    return [4 /*yield*/, bcrypt_1.default.compare(req.body.password, users[0].password, function (err, result) {
-                            if (err) {
-                                res.status(401).json("Invalid password!");
-                            }
-                            else if (result) {
-                                var token = jsonwebtoken_1.default.sign({
-                                    username: users[0].username,
-                                    firstname: users[0].firstname,
-                                    lastname: users[0].lastname,
-                                }, "key", { expiresIn: "1h" });
-                                res.status(200).json({ token: token, user: users[0] });
-                            }
-                            else {
-                                res.status(401).json("Invalid password!");
-                            }
-                        })];
-                case 2:
-                    _a.sent();
-                    return [3 /*break*/, 4];
-                case 3:
-                    res.status(403).json("User Not Activated");
-                    _a.label = 4;
-                case 4: return [3 /*break*/, 6];
-                case 5:
-                    res.status(404).json("User Not Found");
-                    _a.label = 6;
-                case 6: return [2 /*return*/];
-            }
-        });
-    }); });
-});
-UserRouter.get("/verify/:username/:random", function (req, res) {
-    UserModel_1.UserModel.find({ username: req.params.username }, function (err, users) {
-        if (err) {
-            res.json("Error when finding " + req.params.username + ": " + err);
-        }
-        else if (users[0]) {
-            if (!users[0].status) {
-                UserModel_1.tempRandomData.find({ username: req.params.username }, function (err, temp) {
-                    if (err) {
-                        res.json("Error when finding random data: " + err);
-                    }
-                    else if (temp) {
-                        if (temp[0].random === req.params.random) {
-                            users[0].status = true;
-                            users[0].save(function (err) {
-                                if (err) {
-                                    res.json("error occured!");
-                                }
-                                else {
-                                    UserModel_1.tempRandomData.deleteOne({ username: temp[0].username }, undefined, function (err) {
-                                        if (!err) {
-                                            res.json("Successfuly activated!");
-                                        }
-                                        else {
-                                            res.json("error occured!");
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                        else {
-                            res.json("Code missmatch!");
-                        }
-                    }
-                    else {
-                        res.json("nothing found");
-                    }
-                });
-            }
-            else {
-                res.json("User already activated");
-            }
-        }
-        else {
-            res.json("cannot find user");
+UserRouter.post("/login", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var user, isMatch, token;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, services_2.getSingleUser(req.body.username)];
+            case 1:
+                user = _a.sent();
+                if (!!user) return [3 /*break*/, 2];
+                res.status(404).json("User Not Found");
+                return [3 /*break*/, 5];
+            case 2:
+                if (!!user.status) return [3 /*break*/, 3];
+                res.status(403).json("User Not Activated");
+                return [3 /*break*/, 5];
+            case 3: return [4 /*yield*/, services_2.compairPassword(req.body.password, user.password)];
+            case 4:
+                isMatch = _a.sent();
+                if (!isMatch) {
+                    res.status(401).json("Invalid password!");
+                }
+                else {
+                    token = services_1.createToken({
+                        username: user.username,
+                        firstname: user.firstname,
+                        lastname: user.lastname,
+                    }, "key", { expiresIn: "1h" });
+                    res.status(200).json({ token: token, user: user });
+                }
+                _a.label = 5;
+            case 5: return [2 /*return*/];
         }
     });
-});
+}); });
+UserRouter.get("/verify/:username/:random", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var user, userRandom, userStatus;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, services_2.getSingleUser(req.params.username)];
+            case 1:
+                user = _a.sent();
+                if (!!user) return [3 /*break*/, 2];
+                res.status(400).send({ message: "User Not Found: " + req.params.username });
+                return [3 /*break*/, 9];
+            case 2:
+                if (!user.status) return [3 /*break*/, 3];
+                res
+                    .status(400)
+                    .send({ message: "User Already Activated: " + req.params.username });
+                return [3 /*break*/, 9];
+            case 3: return [4 /*yield*/, services_1.getUserTemporyData(req.params.username)];
+            case 4:
+                userRandom = _a.sent();
+                if (!!userRandom) return [3 /*break*/, 5];
+                res
+                    .status(400)
+                    .send({ message: "User Not Found: " + req.params.username });
+                return [3 /*break*/, 9];
+            case 5:
+                if (!(userRandom.random === req.params.random)) return [3 /*break*/, 9];
+                user.status = true;
+                return [4 /*yield*/, services_1.saveUser(user)];
+            case 6:
+                userStatus = _a.sent();
+                if (!!userStatus) return [3 /*break*/, 7];
+                res.status(400).send({ message: "Server Error, Try Again!" });
+                return [3 /*break*/, 9];
+            case 7: return [4 /*yield*/, services_1.deleteTempData(user.username)];
+            case 8:
+                _a.sent();
+                res.status(200).send({
+                    message: "Successfully Activated: " + req.params.username,
+                });
+                _a.label = 9;
+            case 9: return [2 /*return*/];
+        }
+    });
+}); });
 UserRouter.post("/register", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var username, firstname, lastname, pwd, status, random;
+    var username, firstname, lastname, pwd, status, random, user, password, url, sm;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -147,134 +133,121 @@ UserRouter.post("/register", function (req, res) { return __awaiter(void 0, void
                 pwd = req.body.password;
                 status = false;
                 random = randomstring_1.default.generate();
-                return [4 /*yield*/, bcrypt_1.default.hash(pwd, 10, function (err, password) {
-                        if (!err) {
-                            UserModel_1.UserModel.findOne({ username: username }, function (err, doc) {
-                                if (doc) {
-                                    res.status(403).json("Username already exists");
-                                }
-                                else {
-                                    var newUser = new UserModel_1.UserModel({
-                                        username: username,
-                                        firstname: firstname,
-                                        lastname: lastname,
-                                        password: password,
-                                        status: status,
-                                    });
-                                    var randomData_1 = new UserModel_1.tempRandomData({ username: username, random: random });
-                                    newUser.save(function (err) {
-                                        if (err) {
-                                            res.status(403).json("Username already exists");
-                                        }
-                                        else {
-                                            randomData_1.save(function (err) {
-                                                if (err) {
-                                                    res.status(500).json("Save Error");
-                                                }
-                                                else {
-                                                    var url = "Click the confirmation url ===>  http://localhost:3000/confirm/" +
-                                                        username +
-                                                        "/" +
-                                                        random;
-                                                    var sm = mail_1.SendMail(username, url);
-                                                    if (sm) {
-                                                        res
-                                                            .status(200)
-                                                            .json("Verification Mail Sended to: " + username);
-                                                    }
-                                                    else {
-                                                        res.status(500).json("Email Error");
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                        else {
-                            res.status(500).json("Server Error");
-                        }
-                    })];
+                return [4 /*yield*/, services_2.getSingleUser(username)];
             case 1:
+                user = _a.sent();
+                if (!user) return [3 /*break*/, 2];
+                res.status(403).json("Username already exists");
+                return [3 /*break*/, 7];
+            case 2: return [4 /*yield*/, services_1.hashPassword(pwd, 10)];
+            case 3:
+                password = _a.sent();
+                return [4 /*yield*/, services_1.createUser({
+                        username: username,
+                        firstname: firstname,
+                        lastname: lastname,
+                        password: password,
+                        status: status,
+                    })];
+            case 4:
                 _a.sent();
-                return [2 /*return*/];
-        }
-    });
-}); });
-UserRouter.post("/getsingle", function (req, res) {
-    UserModel_1.UserModel.find({ username: req.body.username }, function (err, users) {
-        if (err) {
-            res.status(500).json("CallbackError : " + err);
-        }
-        else if (users[0]) {
-            if (users[0].status) {
-                res.status(200).json(users[0]);
-            }
-            else {
-                res.status(500).json("User Not Activated");
-            }
-        }
-        else {
-            res.status(500).json("User Not Found");
-        }
-    });
-});
-UserRouter.post("/getrandom", function (req, res) {
-    UserModel_1.UserModel.find({ username: req.body.username }, function (err, users) {
-        if (err) {
-            res.status(500).json("CallbackError : " + err);
-        }
-        else if (users[0]) {
-            var random = randomstring_1.default.generate();
-            if (users[0].status) {
-                var url = "Confirmation string ===> " + random;
-                var sm = mail_1.SendMail(req.body.username, url);
+                return [4 /*yield*/, services_1.createTempRandom({ username: username, random: random })];
+            case 5:
+                _a.sent();
+                url = "Click the confirmation url ===>  http://localhost:3000/confirm/" +
+                    username +
+                    "/" +
+                    random;
+                return [4 /*yield*/, mail_1.SendMail(username, url)];
+            case 6:
+                sm = _a.sent();
                 if (sm) {
-                    res.status(200).json({ random: random });
+                    res.status(200).json("Verification Mail Sended to: " + username);
                 }
                 else {
                     res.status(500).json("Email Error");
                 }
-            }
-            else {
-                res.status(500).json("User Not Activated");
-            }
-        }
-        else {
-            res.status(500).json("User Not Found");
+                _a.label = 7;
+            case 7: return [2 /*return*/];
         }
     });
-});
-UserRouter.post("/setpassword", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+}); });
+UserRouter.post("/getsingle", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var user;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, bcrypt_1.default.hash(req.body.password, 10, function (err, password) {
-                    if (!err) {
-                        UserModel_1.UserModel.find({ username: req.body.username }, function (err, doc) {
-                            if (err) {
-                                res.status(500).json("err");
-                            }
-                            else {
-                                doc[0].password = password;
-                                doc[0].save(function (err) {
-                                    if (err) {
-                                        res.status(500).json("error occured");
-                                    }
-                                    else {
-                                        res.status(200).json("success!");
-                                    }
-                                });
-                            }
-                        });
+            case 0: return [4 /*yield*/, services_2.getSingleUser(req.body.username)];
+            case 1:
+                user = _a.sent();
+                if (!user) {
+                    res.status(500).json("User Not Found");
+                }
+                else {
+                    if (!user.status) {
+                        res.status(500).json("User Not Activated");
                     }
                     else {
-                        res.status(500).json("error occured");
+                        res.status(200).json(user);
                     }
-                })];
-            case 1:
-                _a.sent();
+                }
                 return [2 /*return*/];
+        }
+    });
+}); });
+UserRouter.post("/getrandom", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var user, random, url, sm;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, services_2.getSingleUser(req.body.username)];
+            case 1:
+                user = _a.sent();
+                if (!!user) return [3 /*break*/, 2];
+                res.status(500).json("User Not Found");
+                return [3 /*break*/, 5];
+            case 2:
+                if (!!user.status) return [3 /*break*/, 3];
+                res.status(500).json("User Not Activated");
+                return [3 /*break*/, 5];
+            case 3:
+                random = randomstring_1.default.generate();
+                url = "Confirmation string ===> " + random;
+                return [4 /*yield*/, mail_1.SendMail(req.body.username, url)];
+            case 4:
+                sm = _a.sent();
+                if (sm) {
+                    res.status(200).json({ random: random });
+                }
+                else {
+                    res.status(500).json("Email Error try again!");
+                }
+                _a.label = 5;
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
+UserRouter.post("/setpassword", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var user, password, success;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, services_2.getSingleUser(req.body.username)];
+            case 1:
+                user = _a.sent();
+                if (!!user) return [3 /*break*/, 2];
+                res.status(500).json("User not found!");
+                return [3 /*break*/, 4];
+            case 2: return [4 /*yield*/, services_1.hashPassword(req.body.password, 10)];
+            case 3:
+                password = _a.sent();
+                user.password = password;
+                success = services_1.saveUser(user);
+                if (!success) {
+                    res.status(500).json("mongoose error occured!");
+                }
+                else {
+                    res.status(200).json("successfully changed the password!");
+                }
+                _a.label = 4;
+            case 4: return [2 /*return*/];
         }
     });
 }); });

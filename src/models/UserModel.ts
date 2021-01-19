@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { TempData, User } from "../services";
 
 const userSchema = new mongoose.Schema(
   {
@@ -34,9 +35,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-export const UserModel = mongoose.model("User", userSchema);
+export const UserModel = mongoose.model<User>("User", userSchema);
 
-export const tempRandomData = mongoose.model(
+export const tempRandomData = mongoose.model<TempData>(
   "Authenticate",
   new mongoose.Schema({
     username: {
